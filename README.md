@@ -1,0 +1,1 @@
+This project implements the RRT path-finding algorithm in 2 dimensions while considering changes in obstacles over time. It was designed as a final project for CS133b Robotics at Caltech and relies on the astar.py and vandercorput.py libraries authored by instructors of the class.
