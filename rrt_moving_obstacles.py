@@ -2,10 +2,11 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 import numpy as np
-from math               import pi, sin, atan, tan, atan2, sqrt, ceil, dist, radians, degrees
+from math               import pi, sin, cos, tan, atan2, sqrt, ceil, dist, radians
 from shapely.geometry   import Point, LineString, Polygon, MultiPolygon
 from shapely.prepared   import prep
 from time               import sleep
+
 
 
 ######################################################################
@@ -14,15 +15,13 @@ from time               import sleep
 #
 #   Define the step size.  Also set the maximum number of nodes.
 #
-DSTEP = 5
+DSTEP = 1
 
-#   Define SPEEDXY distance the robot can move in one time-step
-# SPEEDXY = 30
+#   Activates/deactivates time based distance metrics.
+USETIME = True
+
 #   Define robot speed (angle of search cone) (must be < 90 and > 0)
-# SPEED = atan(1/SPEEDXY)
 SPEED = radians(10)
-# print(degrees(SPEED))
-
 
 #   Percentage to select goal as growth target
 GOALPER = 0.05
@@ -95,10 +94,12 @@ polygons = []
 obstacles = []
 for t in range(0, TB):
     prepped = prep(MultiPolygon([
-                Polygon(wall2(t))]))
+                Polygon(wall2(t)),
+                Polygon(wall(t))]))
     obstacles.append(prepped)
 
-    polygons.append(wall2z(t)) 
+    polygons.append(wall2z(t))
+    polygons.append(wallz(t))
     
 #####################################################################
 #
@@ -171,9 +172,18 @@ class Node:
     # Return a tuple of coordinates, used to compute Euclidean distance.
     def coordinates(self):
         return (self.x, self.y)
+    
 
-    # Compute the relative Euclidean distance w.r.t time to another node.
+    # Compute the relative Euclidean distance to another node.
     def distance(self, other):
+        return dist(self.coordinates(), other.coordinates())
+    
+    # Return a tuple of coordinates, used to compute Euclidean distance w.r.t time.
+    def coordinatesT(self):
+            return (self.x, self.y, self.t)
+    
+    # Compute the relative time distance to another node.
+    def distanceT(self, other):
         return dist(self.coordinates(), other.coordinates())
 
     ################
@@ -184,9 +194,8 @@ class Node:
             self.y <= ymin or self.y >= ymax):
             return False
         return obstacles[self.t].disjoint(Point(self.coordinates()))
-
-    # Check the local planner - whether this connects to another node.
-    def connectsTo(self, other):
+            
+    def inCone(self, other):
         def inCircle(circle_x, circle_y, rad, x, y):
             # Compare radius of circle
             # with distance of its center
@@ -196,13 +205,13 @@ class Node:
             else:
                 return False
             
-        def inCone(self, other):
-            delta_t = other.t - self.t 
-            if delta_t > 0:
-                return inCircle(self.x, self.y, delta_t * tan(radians(90)-SPEED), other.x, other.y)
-            return False
-
-        if inCone(self, other):
+        delta_t = other.t - self.t 
+        if delta_t > 0:
+            return inCircle(self.x, self.y, delta_t * tan(radians(90)-SPEED), other.x, other.y)
+        return False
+    
+    # Check the local planner - whether this connects to another node.
+    def connectsTo(self, other):
             line = LineString([self.coordinates(), other.coordinates()])
             disjoint = True
             for t in range(self.t, other.t):
@@ -217,6 +226,28 @@ class Node:
 #   RRT Functions
 #
 def rrt(startnode, goalnode, visual):
+    def generateNode():
+        t = np.random.randint(tstart+1, tgoal)
+        offset = (t-tstart) * tan(radians(90)-SPEED)
+
+        xlow = startnode.x-offset
+        xhigh = startnode.x+offset
+        if xlow < xmin:
+            xlow = xmin
+        if xhigh > xmax:
+            xhigh = xmax
+
+        x = np.random.uniform(xlow, xhigh)
+        
+        ylow = startnode.y-offset
+        yhigh = startnode.y+offset
+        if ylow < ymin:
+            ylow = ymin
+        if yhigh > ymax:
+            yhigh = ymax
+        y = np.random.uniform(ylow, yhigh)
+        return Node(x, y, t)
+    
     # Start the tree with the startnode (set no parent just in case).
     startnode.parent = None
     tree = [startnode]
@@ -225,6 +256,12 @@ def rrt(startnode, goalnode, visual):
     # parent, add to the tree, and show in the figure.
     def addtotree(oldnode, newnode):
         newnode.parent = oldnode
+        # if newnode.t < oldnode.t:
+        #     print('____')
+        #     print(newnode)
+        #     print(oldnode)
+        #     sleep(5)
+            
         tree.append(newnode)
         visual.drawEdge(oldnode, newnode, color='g', linewidth=1)
         visual.show()
@@ -236,28 +273,44 @@ def rrt(startnode, goalnode, visual):
         if np.random.uniform() <= GOALPER:
             targetnode = goalnode
         else:
-            x = np.random.uniform(xmin, xmax)
-            y = np.random.uniform(ymin, ymax)
-            t = np.random.randint(0, TB)
-            targetnode = Node(x, y, t)
+            targetnode = generateNode()
+            # print(targetnode)
+            # print(startnode)
+            # print('_____')
+            # if not startnode.inCone(targetnode):
+            #     print("Invalid Target")
+            #     continue
 
         # Directly determine the distances to the target node.
-        distances = np.array([node.distance(targetnode) for node in tree])
+        legaltree = [node for node in tree if node.inCone(targetnode)]
+        if legaltree == []:
+            # print("No legal nodes")
+            continue
+        
+        if USETIME:
+            distances = np.array([node.distanceT(targetnode) for node in legaltree])
+        else:
+            distances = np.array([node.distance(targetnode) for node in legaltree])
+
         index     = np.argmin(distances)
-        nearnode  = tree[index]
+        nearnode  = legaltree[index]
         d         = distances[index]
+
+        # if targetnode.t < nearnode.t:
+        #     print(f"Target: {targetnode}, Near: {nearnode}")
 
         # Determine the next node.
         if DSTEP >= d:
             nextnode = targetnode
         else:
             nextnode = nearnode.intermediate(targetnode, (DSTEP/d))
+        
+        # if nextnode.t < nearnode.t:
+        #     print(f"Next: {nextnode}, Near: {nearnode}")
 
         # Check whether to attach.
         if nextnode.inFreespace() and nearnode.connectsTo(nextnode):
             addtotree(nearnode, nextnode)
-
-            sleep(0.1)
 
             # If within DSTEP, also try connecting to the goal.  If
             # the connection is made, break the loop to stop growing.
