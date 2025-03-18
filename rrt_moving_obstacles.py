@@ -2,10 +2,9 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 import numpy as np
-from math               import pi, sin, cos, tan, atan2, sqrt, ceil, dist, radians
+from math               import pi, atan, sin, tan, dist, radians
 from shapely.geometry   import Point, LineString, Polygon, MultiPolygon
 from shapely.prepared   import prep
-from time               import sleep
 
 
 
@@ -20,8 +19,10 @@ DSTEP = 1
 #   Activates/deactivates time based distance metrics.
 USETIME = True
 
+#   Define SPEEDXY distance the robot can move in one time-step
+SPEEDXY = 10
 #   Define robot speed (angle of search cone) (must be < 90 and > 0)
-SPEED = radians(10)
+SPEED = atan(1/SPEEDXY)
 
 #   Percentage to select goal as growth target
 GOALPER = 0.05
@@ -39,8 +40,8 @@ TB = 100
 
 #   Start and Goal locations
 (xstart, ystart) = (5, 1)
-(xgoal,  ygoal)  = (4, 11)
-(tstart, tgoal)  = (0, TB)
+(xgoal,  ygoal)  = (5, 11)
+(tstart, tgoal)  = (5, TB)
 
 
 #   Define Obstacles
