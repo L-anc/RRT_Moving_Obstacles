@@ -262,9 +262,6 @@ def tvrrt(startnode, goalnode, visual):
 
         # Directly determine the distances to the target node.
         legaltree = [node for node in tree if node.inCone(targetnode)]
-        if legaltree == []:
-            # If no legal nodes can be connected to this node, skip out of this loop and regenerate
-            continue
         
         # Switches on/off time based distance metrics
         if USETIME:
