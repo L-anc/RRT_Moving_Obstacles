@@ -213,9 +213,9 @@ class Node:
 
 ######################################################################
 #
-#   RRT Functions
+#   TVRRT Functions
 #
-def rrt(startnode, goalnode, visual):
+def tvrrt(startnode, goalnode, visual):
     def generateNode():
         t = np.random.randint(tstart+1, tgoal)
         offset = (t-tstart) * tan(radians(90)-SPEED)
@@ -341,7 +341,7 @@ def main():
 
     # Run the RRT planner.
     print("Running RRT...")
-    path = rrt(startnode, goalnode, visual)
+    path = tvrrt(startnode, goalnode, visual)
 
     # If unable to connect, just note before closing.
     if not path:
