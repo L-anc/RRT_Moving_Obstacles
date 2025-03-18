@@ -80,17 +80,7 @@ def wall2z(z):
     return [[0, 5, z], [0, 6, z], [10, 6, z], [10, 5, z]]
     
 
-#   Add functions to generate shapes(square, circle, triangle) with different motions(forward-back, diagonal, circular)
-#   Add solid walls as well
-
-# x = lambda z: sin(z*2*pi)
-# y = lambda z: sin(z*2*pi)
-# squarez = lambda z: [[x(z),y(z), z], [x(z), y(z) + side_len, z], [x(z) + side_len, y(z) + side_len, z], [x(z) + side_len, y(z), z]]
-# square = lambda z: [[x(z),y(z)], [x(z), y(z) + side_len], [x(z) + side_len, y(z) + side_len], [x(z) + side_len, y(z)]]
-
-#   Prepare obstacle graphics
-
-#   Define obstacle positions w.r.t time and prep
+#   Prepare obstacle graphics and define obstacle positions w.r.t time and prep
 polygons = []
 obstacles = []
 for t in range(0, TB):
@@ -174,7 +164,6 @@ class Node:
     def coordinates(self):
         return (self.x, self.y)
     
-
     # Compute the relative Euclidean distance to another node.
     def distance(self, other):
         return dist(self.coordinates(), other.coordinates())
@@ -256,13 +245,7 @@ def rrt(startnode, goalnode, visual):
     # Function to attach a new node to an existing node: attach the
     # parent, add to the tree, and show in the figure.
     def addtotree(oldnode, newnode):
-        newnode.parent = oldnode
-        # if newnode.t < oldnode.t:
-        #     print('____')
-        #     print(newnode)
-        #     print(oldnode)
-        #     sleep(5)
-            
+        newnode.parent = oldnode            
         tree.append(newnode)
         visual.drawEdge(oldnode, newnode, color='g', linewidth=1)
         visual.show()
@@ -274,20 +257,16 @@ def rrt(startnode, goalnode, visual):
         if np.random.uniform() <= GOALPER:
             targetnode = goalnode
         else:
+            # Generate legal node within start node's search cone
             targetnode = generateNode()
-            # print(targetnode)
-            # print(startnode)
-            # print('_____')
-            # if not startnode.inCone(targetnode):
-            #     print("Invalid Target")
-            #     continue
 
         # Directly determine the distances to the target node.
         legaltree = [node for node in tree if node.inCone(targetnode)]
         if legaltree == []:
-            # print("No legal nodes")
+            # If no legal nodes can be connected to this node, skip out of this loop and regenerate
             continue
         
+        # Switches on/off time based distance metrics
         if USETIME:
             distances = np.array([node.distanceT(targetnode) for node in legaltree])
         else:
@@ -297,18 +276,12 @@ def rrt(startnode, goalnode, visual):
         nearnode  = legaltree[index]
         d         = distances[index]
 
-        # if targetnode.t < nearnode.t:
-        #     print(f"Target: {targetnode}, Near: {nearnode}")
-
         # Determine the next node.
         if DSTEP >= d:
             nextnode = targetnode
         else:
             nextnode = nearnode.intermediate(targetnode, (DSTEP/d))
         
-        # if nextnode.t < nearnode.t:
-        #     print(f"Next: {nextnode}, Near: {nearnode}")
-
         # Check whether to attach.
         if nextnode.inFreespace() and nearnode.connectsTo(nextnode):
             addtotree(nearnode, nextnode)
